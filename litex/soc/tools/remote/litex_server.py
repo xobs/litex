@@ -105,7 +105,7 @@ def main():
         if len(sys.argv) > 3:
             server_port = int(sys.argv[3])
         print("[CommUDP] server: {} / port: {} / ".format(server, server_port), end="")
-        comm = CommUDP(server, server_port)
+        comm = CommUDP(server, server_port, debug=False)
     elif comm == "pcie":
         from litex.soc.tools.remote import CommPCIe
         bar = ""

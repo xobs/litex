@@ -137,6 +137,7 @@ class XilinxVivadoToolchain:
         tcl.append("report_timing_summary -file {}_timing_synth.rpt".format(build_name))
         tcl.append("report_utilization -hierarchical -file {}_utilization_hierarchical_synth.rpt".format(build_name))
         tcl.append("report_utilization -file {}_utilization_synth.rpt".format(build_name))
+        tcl.append("write_checkpoint -force {}_synth.dcp".format(build_name))
         tcl.append("opt_design")
         tcl.append("place_design")
         if self.with_phys_opt:
