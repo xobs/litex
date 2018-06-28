@@ -6,7 +6,7 @@ from litex.soc.interconnect import wishbone
 from litex.soc.interconnect.csr import AutoCSR, CSRStatus, CSRStorage
 
 class VexRiscv(Module, AutoCSR):
-    def __init__(self, platform, cpu_reset_address, cpu_debugging):
+    def __init__(self, platform, cpu_reset_address, cpu_debugging=False):
         self.ibus = i = wishbone.Interface()
         self.dbus = d = wishbone.Interface()
 
@@ -18,6 +18,7 @@ class VexRiscv(Module, AutoCSR):
         o_debug_bus_cmd_ready = Signal()
         o_debug_bus_rsp_data = Signal(32)
         debug_start_cmd = Signal()
+
         if cpu_debugging:
             debug_data_is_ready = Signal()
             self.debug_core_reg = CSRStorage(32, name="debug_core", write_from_dev=True)
@@ -95,17 +96,23 @@ class VexRiscv(Module, AutoCSR):
                 )
             ]
 
+            kwargs = {
+                'i_debugReset': ResetSignal(),
+                'i_debug_bus_cmd_valid': debug_start_cmd,
+                'i_debug_bus_cmd_payload_wr': i_debug_bus_cmd_payload_wr,
+                'i_debug_bus_cmd_payload_address': i_debug_bus_cmd_payload_address,
+                'i_debug_bus_cmd_payload_data': i_debug_bus_cmd_payload_data,
+                'o_debug_bus_cmd_ready': o_debug_bus_cmd_ready,
+                'o_debug_bus_rsp_data': o_debug_bus_rsp_data
+            }
+            source_file = "VexRiscv-Debug.v"
+        else:
+            kwargs = {}
+            source_file = "VexRiscv.v"
+
         self.specials += Instance("VexRiscv",
                                   i_clk=ClockSignal(),
                                   i_reset=ResetSignal(),
-
-                                  i_debugReset=ResetSignal(),
-                                  i_debug_bus_cmd_valid=debug_start_cmd,
-                                  i_debug_bus_cmd_payload_wr=i_debug_bus_cmd_payload_wr,
-                                  i_debug_bus_cmd_payload_address=i_debug_bus_cmd_payload_address,
-                                  i_debug_bus_cmd_payload_data=i_debug_bus_cmd_payload_data,
-                                  o_debug_bus_cmd_ready=o_debug_bus_cmd_ready,
-                                  o_debug_bus_rsp_data=o_debug_bus_rsp_data,
 
                                   i_externalResetVector=cpu_reset_address,
                                   i_externalInterruptArray=self.interrupt,
@@ -133,9 +140,10 @@ class VexRiscv(Module, AutoCSR):
                                   o_dBusWishbone_BTE=d.bte,
                                   i_dBusWishbone_DAT_MISO=d.dat_r,
                                   i_dBusWishbone_ACK=d.ack,
-                                  i_dBusWishbone_ERR=d.err)
+                                  i_dBusWishbone_ERR=d.err,
+                                  **kwargs)
 
         # add Verilog sources
         vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog")
-        platform.add_sources(os.path.join(vdir), "VexRiscv.v")
+        platform.add_sources(os.path.join(vdir), source_file)
         platform.add_verilog_include_path(vdir)
