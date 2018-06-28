@@ -112,7 +112,7 @@ class SoCCore(Module):
             elif cpu_type == "picorv32":
                 self.add_cpu_or_bridge(picorv32.PicoRV32(platform, self.cpu_reset_address, self.cpu_variant))
             elif cpu_type == "vexriscv":
-                self.add_cpu_or_bridge(vexriscv.VexRiscv(platform, self.cpu_reset_address, self.cpu_debugging))
+                self.add_cpu_or_bridge(vexriscv.VexRiscv(platform, self.cpu_reset_address, cpu_debugging=self.cpu_debugging))
             else:
                 raise ValueError("Unsupported CPU type: {}".format(cpu_type))
             self.add_wb_master(self.cpu_or_bridge.ibus)
