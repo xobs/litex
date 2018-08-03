@@ -123,6 +123,34 @@ class Decoder(Module):
         self.comb += [slave[1].cyc.eq(master.cyc & slave_sel[i])
             for i, slave in enumerate(slaves)]
 
+        # Busfault Detector.
+        # When addressing an invalid device, the CYC line will be high but no STB line
+        # will be high.
+        # Handle this case by driving ACK, which will unstick the Wishbone bus.
+        # Additionally, if operating in `register` mode, set the local busfault_addr
+        # to the address that was requested, and increment the `busfault_count` register.
+        # Currently, these registers are not accessible outside of this module.
+        busfault_detected = Signal()
+        busfault_cyc = Signal()
+        busfault_stb = Signal()
+        busfault_default = Signal(32, reset=0xffffffff)
+        last_busfault_addr = Signal(32)
+        busfault_count = Signal(256)
+        for (i, slave) in enumerate(slaves):
+            if i == 0:
+                busfault_detected = slave[1].cyc
+            else:
+                busfault_detected = busfault_detected | slave[1].cyc
+        self.comb += busfault_cyc.eq(~(busfault_detected) & master.cyc)
+        self.comb += busfault_stb.eq(master.stb)
+        if register:
+            self.sync += [
+                If(busfault_cyc & busfault_stb,
+                    busfault_count.eq(busfault_count + 1),
+                    last_busfault_addr.eq(master.adr)
+                )
+            ]
+
         # generate master ack (resp. err) by ORing all slave acks (resp. errs)
         self.comb += [
             master.ack.eq(reduce(or_, [slave[1].ack for slave in slaves])),
@@ -131,6 +159,13 @@ class Decoder(Module):
 
         # mux (1-hot) slave data return
         masked = [Replicate(slave_sel_r[i], len(master.dat_r)) & slaves[i][1].dat_r for i in range(ns)]
+
+        # Assign the deafult value to dat_r when a busfault is detected.  The value of dat_r is set to:
+        #   slave.sel & slave.dat_r
+        # When a slave is not selected, its dat_r does not get muxed in.  Copy the same behavior here
+        # by assigning busfault_default (a 32-bit register) ANDed with the NOT of all of the slave STB lines.
+        masked += [(Replicate(~(busfault_detected) & master.cyc, len(master.dat_r)) & busfault_default)]
+
         self.comb += master.dat_r.eq(reduce(or_, masked))
 
 
