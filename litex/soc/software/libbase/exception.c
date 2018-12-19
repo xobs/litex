@@ -171,6 +171,7 @@ void exception_handler(unsigned long vect, unsigned long *regs,
 void exception_handler(unsigned long vect, unsigned long *regs,
                        unsigned long pc, unsigned long ea, unsigned long sr)
 {
+	return;
 	if(vect == EXTERNAL_IRQ) {
 		isr();
 	} else {

@@ -18,11 +18,18 @@
 #include "sdram.h"
 #include "boot.h"
 
+#define printf(...)
+
 /* General address space functions */
 
 #define NUMBER_OF_BYTES_ON_A_LINE 16
+void i2a(int num, int base, char * bf);
+void ui2a(unsigned int num, unsigned int base, int uc,char * bf);
+
 static void dump_bytes(unsigned int *ptr, int count, unsigned addr)
 {
+	char buffer[32];
+	int zeropad;
 	char *data = (char *)ptr;
 	int line_bytes = 0, i = 0;
 
@@ -32,30 +39,41 @@ static void dump_bytes(unsigned int *ptr, int count, unsigned addr)
 			(count > NUMBER_OF_BYTES_ON_A_LINE)?
 				NUMBER_OF_BYTES_ON_A_LINE : count;
 
-		printf("\n0x%08x  ", addr);
-		for(i=0;i<line_bytes;i++)
-			printf("%02x ", *(unsigned char *)(data+i));
-
-		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
-			printf("   ");
-
-		printf(" ");
-
+		putchar('\n');
+		ui2a(addr, 16, 0, buffer);
+		zeropad = strlen(buffer);
+		while (zeropad++ < 8)
+			putchar('0');
+		putsnonl(buffer);
+		putsnonl("  ");
 		for(i=0;i<line_bytes;i++) {
-			if((*(data+i) < 0x20) || (*(data+i) > 0x7e))
-				printf(".");
-			else
-				printf("%c", *(data+i));
+			ui2a(*(unsigned char *)(data+i), 16, 0, buffer);
+			if (strlen(buffer) < 2)
+				putchar('0');
+			putsnonl(buffer);
+			putchar(' ');
 		}
 
 		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
-			printf(" ");
+			putsnonl("   ");
+
+		putchar(' ');
+
+		for(i=0;i<line_bytes;i++) {
+			if((*(data+i) < 0x20) || (*(data+i) > 0x7e))
+				putchar('.');
+			else
+				putchar(*(data+i));
+		}
+
+		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
+			putchar(' ');
 
 		data += (char)line_bytes;
 		count -= line_bytes;
 		addr += line_bytes;
 	}
-	printf("\n");
+	putchar('\n');
 }
 
 static void mr(char *startaddr, char *len)
@@ -65,12 +83,12 @@ static void mr(char *startaddr, char *len)
 	unsigned int length;
 
 	if(*startaddr == 0) {
-		printf("mr <address> [length]\n");
+		putsnonl("mr <address> [length]\n");
 		return;
 	}
 	addr = (unsigned *)strtoul(startaddr, &c, 0);
 	if(*c != 0) {
-		printf("incorrect address\n");
+		putsnonl("incorrect address\n");
 		return;
 	}
 	if(*len == 0) {
@@ -78,7 +96,7 @@ static void mr(char *startaddr, char *len)
 	} else {
 		length = strtoul(len, &c, 0);
 		if(*c != 0) {
-			printf("incorrect length\n");
+			putsnonl("incorrect length\n");
 			return;
 		}
 	}
@@ -95,17 +113,17 @@ static void mw(char *addr, char *value, char *count)
 	unsigned int i;
 
 	if((*addr == 0) || (*value == 0)) {
-		printf("mw <address> <value> [count]\n");
+		putsnonl("mw <address> <value> [count]\n");
 		return;
 	}
 	addr2 = (unsigned int *)strtoul(addr, &c, 0);
 	if(*c != 0) {
-		printf("incorrect address\n");
+		putsnonl("incorrect address\n");
 		return;
 	}
 	value2 = strtoul(value, &c, 0);
 	if(*c != 0) {
-		printf("incorrect value\n");
+		putsnonl("incorrect value\n");
 		return;
 	}
 	if(*count == 0) {
@@ -113,7 +131,7 @@ static void mw(char *addr, char *value, char *count)
 	} else {
 		count2 = strtoul(count, &c, 0);
 		if(*c != 0) {
-			printf("incorrect count\n");
+			putsnonl("incorrect count\n");
 			return;
 		}
 	}
@@ -129,17 +147,17 @@ static void mc(char *dstaddr, char *srcaddr, char *count)
 	unsigned int i;
 
 	if((*dstaddr == 0) || (*srcaddr == 0)) {
-		printf("mc <dst> <src> [count]\n");
+		putsnonl("mc <dst> <src> [count]\n");
 		return;
 	}
 	dstaddr2 = (unsigned int *)strtoul(dstaddr, &c, 0);
 	if(*c != 0) {
-		printf("incorrect destination address\n");
+		putsnonl("incorrect destination address\n");
 		return;
 	}
 	srcaddr2 = (unsigned int *)strtoul(srcaddr, &c, 0);
 	if(*c != 0) {
-		printf("incorrect source address\n");
+		putsnonl("incorrect source address\n");
 		return;
 	}
 	if(*count == 0) {
@@ -147,7 +165,7 @@ static void mc(char *dstaddr, char *srcaddr, char *count)
 	} else {
 		count2 = strtoul(count, &c, 0);
 		if(*c != 0) {
-			printf("incorrect count\n");
+			putsnonl("incorrect count\n");
 			return;
 		}
 	}
@@ -183,7 +201,8 @@ static void ident(void)
 	char buffer[IDENT_SIZE];
 
 	get_ident(buffer);
-	printf("Ident: %s\n", buffer);
+	putsnonl("Ident: ");
+	puts(buffer);
 }
 
 #ifdef __lm32__
@@ -226,13 +245,13 @@ static void rcsr(char *csr)
 	register unsigned int value;
 
 	if(*csr == 0) {
-		printf("rcsr <csr>\n");
+		puts("rcsr <csr>");
 		return;
 	}
 
 	csr2 = parse_csr(csr);
 	if(csr2 == 0) {
-		printf("incorrect csr\n");
+		puts("incorrect csr");
 		return;
 	}
 
@@ -246,10 +265,16 @@ static void rcsr(char *csr)
 		case CSR_DEBA: asm volatile ("rcsr %0,deba":"=r"(value)); break;
 		case CSR_JTX:  asm volatile ("rcsr %0,jtx":"=r"(value)); break;
 		case CSR_JRX:  asm volatile ("rcsr %0,jrx":"=r"(value)); break;
-		default: printf("csr write only\n"); return;
+		default: puts("csr write only"); return;
 	}
 
-	printf("%08x\n", value);
+	char buffer[32];
+	int zeropad;
+	ui2a(value, 16, 0, buffer);
+	zeropad = strlen(buffer);
+	while (zeropad++ < 8)
+		putchar('0');
+	puts(buffer);
 }
 
 static void wcsr(char *csr, char *value)
@@ -259,18 +284,18 @@ static void wcsr(char *csr, char *value)
 	register unsigned int value2;
 
 	if((*csr == 0) || (*value == 0)) {
-		printf("wcsr <csr> <address>\n");
+		puts("wcsr <csr> <address>");
 		return;
 	}
 
 	csr2 = parse_csr(csr);
 	if(csr2 == 0) {
-		printf("incorrect csr\n");
+		puts("incorrect csr");
 		return;
 	}
 	value2 = strtoul(value, &c, 0);
 	if(*c != 0) {
-		printf("incorrect value\n");
+		puts("incorrect value");
 		return;
 	}
 
@@ -292,7 +317,7 @@ static void wcsr(char *csr, char *value)
 		case CSR_WP1:  asm volatile ("wcsr wp1,%0"::"r"(value2)); break;
 		case CSR_WP2:  asm volatile ("wcsr wp2,%0"::"r"(value2)); break;
 		case CSR_WP3:  asm volatile ("wcsr wp3,%0"::"r"(value2)); break;
-		default: printf("csr read only\n"); return;
+		default: puts("csr read only"); return;
 	}
 }
 
@@ -509,26 +534,29 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_setie(1);
 	uart_init();
-	printf("\n");
-	printf("\e[1m        __   _ __      _  __\e[0m\n");
-	printf("\e[1m       / /  (_) /____ | |/_/\e[0m\n");
-	printf("\e[1m      / /__/ / __/ -_)>  <\e[0m\n");
-	printf("\e[1m     /____/_/\\__/\\__/_/|_|\e[0m\n");
-	printf("\e[1m SoC BIOS / CPU: ");
+	puts("");
+	puts("\e[1m        __   _ __      _  __\e[0m");
+	puts("\e[1m       / /  (_) /____ | |/_/\e[0m");
+	puts("\e[1m      / /__/ / __/ -_)>  <\e[0m");
+	puts("\e[1m     /____/_/\\__/\\__/_/|_|\e[0m");
+	putsnonl("\e[1m SoC BIOS / CPU: ");
 #ifdef __lm32__
-	printf("LM32");
+	putsnonl("LM32");
 #elif __or1k__
-	printf("MOR1KX");
+	putsnonl("MOR1KX");
 #elif __picorv32__
-	printf("PicoRV32");
+	putsnonl("PicoRV32");
 #elif __vexriscv__
-	printf("VexRiscv");
+	putsnonl("VexRiscv");
 #elif __minerva__
-	printf("Minerva");
+	putsnonl("Minerva");
 #else
-	printf("Unknown");
+	putsnonl("Unknown");
 #endif
-	printf(" / %3dMHz\e[0m\n", SYSTEM_CLOCK_FREQUENCY/1000000);
+	putsnonl(" / ");
+	i2a(SYSTEM_CLOCK_FREQUENCY/1000000, 10, buffer);
+	putsnonl(buffer);
+	puts("MHz\e[0m\n");
 
 	puts(
 	"(c) Copyright 2012-2018 Enjoy-Digital\n"

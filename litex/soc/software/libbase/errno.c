@@ -183,6 +183,7 @@ struct errno_strmap_s g_errnomap[] =
 
 char *strerror(int errnum)
 {
+  return "some error";
   int ndxlow = 0;
   int ndxhi  = NERRNO_STRS - 1;
   int ndxmid;

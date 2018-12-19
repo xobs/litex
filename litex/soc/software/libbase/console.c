@@ -62,10 +62,37 @@ void putsnonl(const char *s)
 	}
 }
 
+void ui2a(unsigned int num, unsigned int base, int uc,char * bf)
+{
+  int n=0;
+  unsigned int d=1;
+  while (num/d >= base)
+    d*=base;
+  while (d!=0) {
+    int dgt = num / d;
+    num%= d;
+    d/=base;
+    if (n || dgt>0 || d==0) {
+      *bf++ = dgt+(dgt<10 ? '0' : (uc ? 'A' : 'a')-10);
+      ++n;
+    }
+  }
+  *bf=0;
+}
+void i2a(int num, int base, char * bf)
+{
+  if (num<0) {
+    num=-num;
+    *bf++ = '-';
+  }
+  ui2a(num,base,0,bf);
+}
+
 #define PRINTF_BUFFER_SIZE 256
 
 int vprintf(const char *fmt, va_list args)
 {
+	return 0;
 	int len;
 	char outbuf[PRINTF_BUFFER_SIZE];
 	len = vscnprintf(outbuf, sizeof(outbuf), fmt, args);
@@ -76,6 +103,7 @@ int vprintf(const char *fmt, va_list args)
 
 int printf(const char *fmt, ...)
 {
+	return 0;
 	int len;
 	va_list args;
 	va_start(args, fmt);

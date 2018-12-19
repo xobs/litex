@@ -24,6 +24,48 @@
 #include <limits.h>
 #include <inet.h>
 
+
+int _isspace(char c) {
+  return (c == ' '
+       || c == '\f'
+       || c == '\n'
+       || c == '\r'
+       || c == '\t'
+       || c == '\v');
+}
+
+int _isdigit(char c) {
+  return (c >= '0' && c <= '9');
+}
+
+int _isxdigit(char c) {
+  return ((c >= '0' && c <= '9') ||
+    (c >= 'a' && c <= 'f') ||
+    (c >= 'A' && c <= 'F'));
+}
+
+int _isupper(char c) {
+  return (c >= 'A' && c <= 'Z');
+}
+
+int _islower(char c) {
+  return (c >= 'a' && c <= 'z');
+}
+
+int _isalpha(char c) {
+  return _isupper(c) || _islower(c);
+}
+
+int _isalnum(char c) {
+  return _isalpha(c) || _isdigit(c);
+}
+
+int _toupper(char c) {
+  if (!_islower(c))
+    return c;
+  return c - ('a' - 'A');
+}
+
 /**
  * strchr - Find the first occurrence of a character in a string
  * @s: The string to be searched
@@ -442,17 +484,17 @@ unsigned long strtoul(const char *nptr, char **endptr, int base)
 		if (*nptr == '0') {
 			base = 8;
 			nptr++;
-			if ((toupper(*nptr) == 'X') && isxdigit(nptr[1])) {
+			if ((_toupper(*nptr) == 'X') && _isxdigit(nptr[1])) {
 				nptr++;
 				base = 16;
 			}
 		}
 	} else if (base == 16) {
-		if (nptr[0] == '0' && toupper(nptr[1]) == 'X')
+		if (nptr[0] == '0' && _toupper(nptr[1]) == 'X')
 			nptr += 2;
 	}
-	while (isxdigit(*nptr) &&
-	       (value = isdigit(*nptr) ? *nptr-'0' : toupper(*nptr)-'A'+10) < base) {
+	while (_isxdigit(*nptr) &&
+	       (value = _isdigit(*nptr) ? *nptr-'0' : _toupper(*nptr)-'A'+10) < base) {
 		result = result*base + value;
 		nptr++;
 	}
@@ -478,20 +520,24 @@ int skip_atoi(const char **s)
 {
 	int i=0;
 
-	while (isdigit(**s))
+	while (_isdigit(**s))
 		i = i*10 + *((*s)++) - '0';
 	return i;
 }
 
-char *number(char *buf, char *end, unsigned long num, int base, int size, int precision, int type)
+static uint8_t _digit(uint8_t dgt, int uc) {
+    return dgt+(dgt<10 ? '0' : (uc ? 'A' : 'a')-10);
+}
+
+char *_number(char *buf, char *end, unsigned long num, int base, int size, int precision, int type)
 {
 	char c,sign,tmp[66];
-	const char *digits;
-	static const char small_digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-	static const char large_digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	// const char *digits;
+	// static const char small_digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+	// static const char large_digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	int i;
 
-	digits = (type & PRINTF_LARGE) ? large_digits : small_digits;
+	// digits = (type & PRINTF_LARGE) ? large_digits : small_digits;
 	if (type & PRINTF_LEFT)
 		type &= ~PRINTF_ZEROPAD;
 	if (base < 2 || base > 36)
@@ -521,7 +567,7 @@ char *number(char *buf, char *end, unsigned long num, int base, int size, int pr
 	if (num == 0)
 		tmp[i++]='0';
 	else while (num != 0) {
-		tmp[i++] = digits[num % base];
+		tmp[i++] = _digit(num % base, type & PRINTF_LARGE);
 		num = num / base;
 	}
 	if (i > precision)
@@ -549,7 +595,7 @@ char *number(char *buf, char *end, unsigned long num, int base, int size, int pr
 				*buf = '0';
 			++buf;
 			if (buf < end)
-				*buf = digits[33];
+				*buf = _digit(33, type & PRINTF_LARGE);
 			++buf;
 		}
 	}
@@ -577,6 +623,7 @@ char *number(char *buf, char *end, unsigned long num, int base, int size, int pr
 	}
 	return buf;
 }
+
 
 /**
  * vscnprintf - Format a string and place it in a buffer
@@ -686,31 +733,31 @@ int sprintf(char * buf, const char *fmt, ...)
 }
 
 /* From linux/lib/ctype.c, Copyright (C) 1991, 1992  Linus Torvalds */
-const unsigned char _ctype[] = {
-_C,_C,_C,_C,_C,_C,_C,_C,				/* 0-7 */
-_C,_C|_S,_C|_S,_C|_S,_C|_S,_C|_S,_C,_C,			/* 8-15 */
-_C,_C,_C,_C,_C,_C,_C,_C,				/* 16-23 */
-_C,_C,_C,_C,_C,_C,_C,_C,				/* 24-31 */
-_S|_SP,_P,_P,_P,_P,_P,_P,_P,				/* 32-39 */
-_P,_P,_P,_P,_P,_P,_P,_P,				/* 40-47 */
-_D,_D,_D,_D,_D,_D,_D,_D,				/* 48-55 */
-_D,_D,_P,_P,_P,_P,_P,_P,				/* 56-63 */
-_P,_U|_X,_U|_X,_U|_X,_U|_X,_U|_X,_U|_X,_U,		/* 64-71 */
-_U,_U,_U,_U,_U,_U,_U,_U,				/* 72-79 */
-_U,_U,_U,_U,_U,_U,_U,_U,				/* 80-87 */
-_U,_U,_U,_P,_P,_P,_P,_P,				/* 88-95 */
-_P,_L|_X,_L|_X,_L|_X,_L|_X,_L|_X,_L|_X,_L,		/* 96-103 */
-_L,_L,_L,_L,_L,_L,_L,_L,				/* 104-111 */
-_L,_L,_L,_L,_L,_L,_L,_L,				/* 112-119 */
-_L,_L,_L,_P,_P,_P,_P,_C,				/* 120-127 */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,			/* 128-143 */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,			/* 144-159 */
-_S|_SP,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,	/* 160-175 */
-_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,	/* 176-191 */
-_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,	/* 192-207 */
-_U,_U,_U,_U,_U,_U,_U,_P,_U,_U,_U,_U,_U,_U,_U,_L,	/* 208-223 */
-_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,	/* 224-239 */
-_L,_L,_L,_L,_L,_L,_L,_P,_L,_L,_L,_L,_L,_L,_L,_L};	/* 240-255 */
+// const unsigned char _ctype[] = {
+// _C,_C,_C,_C,_C,_C,_C,_C,				/* 0-7 */
+// _C,_C|_S,_C|_S,_C|_S,_C|_S,_C|_S,_C,_C,			/* 8-15 */
+// _C,_C,_C,_C,_C,_C,_C,_C,				/* 16-23 */
+// _C,_C,_C,_C,_C,_C,_C,_C,				/* 24-31 */
+// _S|_SP,_P,_P,_P,_P,_P,_P,_P,				/* 32-39 */
+// _P,_P,_P,_P,_P,_P,_P,_P,				/* 40-47 */
+// _D,_D,_D,_D,_D,_D,_D,_D,				/* 48-55 */
+// _D,_D,_P,_P,_P,_P,_P,_P,				/* 56-63 */
+// _P,_U|_X,_U|_X,_U|_X,_U|_X,_U|_X,_U|_X,_U,		/* 64-71 */
+// _U,_U,_U,_U,_U,_U,_U,_U,				/* 72-79 */
+// _U,_U,_U,_U,_U,_U,_U,_U,				/* 80-87 */
+// _U,_U,_U,_P,_P,_P,_P,_P,				/* 88-95 */
+// _P,_L|_X,_L|_X,_L|_X,_L|_X,_L|_X,_L|_X,_L,		/* 96-103 */
+// _L,_L,_L,_L,_L,_L,_L,_L,				/* 104-111 */
+// _L,_L,_L,_L,_L,_L,_L,_L,				/* 112-119 */
+// _L,_L,_L,_P,_P,_P,_P,_C,				/* 120-127 */
+// 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,			/* 128-143 */
+// 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,			/* 144-159 */
+// _S|_SP,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,	/* 160-175 */
+// _P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,_P,	/* 176-191 */
+// _U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,_U,	/* 192-207 */
+// _U,_U,_U,_U,_U,_U,_U,_P,_U,_U,_U,_U,_U,_U,_U,_L,	/* 208-223 */
+// _L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,_L,	/* 224-239 */
+// _L,_L,_L,_L,_L,_L,_L,_P,_L,_L,_L,_L,_L,_L,_L,_L};	/* 240-255 */
 
 /**
  * rand - Returns a pseudo random number

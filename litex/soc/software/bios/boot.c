@@ -8,6 +8,7 @@
 
 #include <generated/mem.h>
 #include <generated/csr.h>
+#define printf(...)
 
 #ifdef CSR_ETHMAC_BASE
 #include <net/microudp.h>
@@ -85,8 +86,8 @@ int serialboot(void)
 	const char *c;
 	int ack_status;
 
-	printf("Booting from serial...\n");
-	printf("Press Q or ESC to abort boot completely.\n");
+	putsnonl("Booting from serial...\n");
+	putsnonl("Press Q or ESC to abort boot completely.\n");
 
 	c = str;
 	while(*c) {
@@ -95,11 +96,11 @@ int serialboot(void)
 	}
 	ack_status = check_ack();
 	if(ack_status == ACK_TIMEOUT) {
-		printf("Timeout\n");
+		putsnonl("Timeout\n");
 		return 1;
 	}
 	if(ack_status == ACK_CANCELLED) {
-		printf("Cancelled\n");
+		putsnonl("Cancelled\n");
 		return 0;
 	}
 	/* assume ACK_OK */
@@ -125,7 +126,7 @@ int serialboot(void)
 		if(actualcrc != goodcrc) {
 			failed++;
 			if(failed == MAX_FAILED) {
-				printf("Too many consecutive errors, aborting");
+				putsnonl("Too many consecutive errors, aborting");
 				return 1;
 			}
 			uart_write(SFL_ACK_CRCERROR);
@@ -191,7 +192,7 @@ int serialboot(void)
 			default:
 				failed++;
 				if(failed == MAX_FAILED) {
-					printf("Too many consecutive errors, aborting");
+					putsnonl("Too many consecutive errors, aborting");
 					return 1;
 				}
 				uart_write(SFL_ACK_UNKNOWN);

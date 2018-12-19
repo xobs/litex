@@ -23,6 +23,9 @@
 #include <ctype.h>
 #include <math.h>
 
+int _isdigit(char c);
+char *_number(char *buf, char *end, unsigned long num, int base, int size, int precision, int type);
+
 /**
  * vsnprintf - Format a string and place it in a buffer
  * @buf: The buffer to place the result into
@@ -95,7 +98,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 
 		/* get field width */
 		field_width = -1;
-		if (isdigit(*fmt))
+		if (_isdigit(*fmt))
 			field_width = skip_atoi(&fmt);
 		else if (*fmt == '*') {
 			++fmt;
@@ -111,7 +114,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 		precision = -1;
 		if (*fmt == '.') {
 			++fmt;
-			if (isdigit(*fmt))
+			if (_isdigit(*fmt))
 				precision = skip_atoi(&fmt);
 			else if (*fmt == '*') {
 				++fmt;
@@ -182,17 +185,17 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 					++str;
 				}
 				continue;
-
+#ifndef NO_P
 			case 'p':
 				if (field_width == -1) {
 					field_width = 2*sizeof(void *);
 					flags |= PRINTF_ZEROPAD;
 				}
-				str = number(str, end,
+				str = _number(str, end,
 						(unsigned long) va_arg(args, void *),
 						16, field_width, precision, flags);
 				continue;
-
+#endif
 #ifndef NO_FLOAT
 			case 'g':
 			case 'f': {
@@ -304,7 +307,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 			if (flags & PRINTF_SIGN)
 				num = (signed int) num;
 		}
-		str = number(str, end, num, base,
+		str = _number(str, end, num, base,
 				field_width, precision, flags);
 	}
 	if (size > 0) {
