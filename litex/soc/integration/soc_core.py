@@ -279,6 +279,10 @@ class SoCCore(Module):
         self.cpu_or_bridge = self.cpu
 
     def initialize_rom(self, data):
+        import random
+        data = []
+        for d in range(self.rom.mem.depth):
+            data.append(random.getrandbits(32))
         self.rom.mem.init = data
 
     def add_wb_master(self, wbm):
