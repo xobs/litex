@@ -12,6 +12,7 @@
 import os
 
 from migen import *
+from migen.genlib.fsm import FSM
 
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect.csr import *
@@ -152,53 +153,50 @@ class VexRiscv(CPU, AutoCSR):
 
         reset_debug_logic = Signal()
 
-        self.transfer_complete     = Signal()
-        self.transfer_in_progress  = Signal()
-        self.transfer_wait_for_ack = Signal()
-
         self.debug_bus = wishbone.Interface()
 
-        self.sync += [
+        self.comb += [
+            self.i_cmd_payload_data.eq(self.debug_bus.dat_w),
+            self.i_cmd_payload_address.eq((self.debug_bus.adr[0:6] << 2) | 0),
+            self.i_cmd_payload_wr.eq(self.debug_bus.we),
             self.debug_bus.dat_r.eq(self.o_rsp_data),
             debug_reset.eq(reset_debug_logic | ResetSignal()),
         ]
 
-        self.sync += [
-            # CYC is held high for the duration of the transfer.
-            # STB is kept high when the transfer finishes (write)
-            # or the master is waiting for data (read), and stays
-            # there until ACK, ERR, or RTY are asserted.
-            If((self.debug_bus.stb & self.debug_bus.cyc)
-            & (~self.transfer_in_progress)
-            & (~self.transfer_complete)
-            & (~self.transfer_wait_for_ack),
-                self.i_cmd_payload_data.eq(self.debug_bus.dat_w),
-                self.i_cmd_payload_address.eq((self.debug_bus.adr[0:6] << 2) | 0),
-                self.i_cmd_payload_wr.eq(self.debug_bus.we),
+        self.submodules.debug_fsm = debug_fsm = FSM()
+
+        debug_fsm.act("IDLE",
+            If(self.debug_bus.stb & self.debug_bus.cyc,
                 self.i_cmd_valid.eq(1),
-                self.transfer_in_progress.eq(1),
-                self.transfer_complete.eq(0),
-                self.debug_bus.ack.eq(0)
-            ).Elif(self.transfer_in_progress,
-                If(self.o_cmd_ready,
-                    self.i_cmd_valid.eq(0),
-                    self.i_cmd_payload_wr.eq(0),
-                    self.transfer_complete.eq(1),
-                    self.transfer_in_progress.eq(0)
-                )
-            ).Elif(self.transfer_complete,
-                self.transfer_complete.eq(0),
-                self.debug_bus.ack.eq(1),
-                self.transfer_wait_for_ack.eq(1)
-            ).Elif(self.transfer_wait_for_ack & ~(self.debug_bus.stb & self.debug_bus.cyc),
-                self.transfer_wait_for_ack.eq(0),
-                self.debug_bus.ack.eq(0)
+                NextState("TRANSFER_IN_PROGRESS"),
             ),
-            # Force a Wishbone error if transferring during a reset sequence.
-            # Because o_resetOut is multiple cycles and i.stb/d.stb should
-            # deassert one cycle after i_err/i_ack/d_err/d_ack are asserted,
-            # this will give i_err and o_err enough time to be reset to 0
-            # once the reset cycle finishes.
+        )
+
+        debug_fsm.act("TRANSFER_IN_PROGRESS",
+            self.i_cmd_valid.eq(1),
+            If(self.o_cmd_ready,
+                NextState("SEND_ACK"),
+            ),
+        )
+
+        debug_fsm.act("SEND_ACK",
+            self.debug_bus.ack.eq(1),
+            NextState("FINISH"),
+        )
+
+        debug_fsm.act("FINISH",
+            self.debug_bus.ack.eq(1),
+            If(~(self.debug_bus.stb & self.debug_bus.cyc),
+                NextState("IDLE"),
+            ),
+        )
+
+        # Force a Wishbone error if transferring during a reset sequence.
+        # Because o_resetOut is multiple cycles and i.stb/d.stb should
+        # deassert one cycle after i_err/i_ack/d_err/d_ack are asserted,
+        # this will give i_err and o_err enough time to be reset to 0
+        # once the reset cycle finishes.
+        self.sync += [
             If(self.o_resetOut,
                 If(self.ibus.cyc & self.ibus.stb, ibus_err.eq(1)).Else(ibus_err.eq(0)),
                 If(self.dbus.cyc & self.dbus.stb, dbus_err.eq(1)).Else(dbus_err.eq(0)),
